@@ -96,7 +96,10 @@ uint8_t cat_LDAC=14; // pin 2 of launchpad is the LDAC pin we use here.
 uint8_t pot_LDAC=17; // pin 2 of launchpad is the LDAC pin we use here. 
 unsigned long hvmonUpdateTime=0; // keeping time for the sensor check/write
 #define HVMON_UPDATE_PERIOD 1000
-uint16_t write_val_potential=0;
+uint16_t voltage_potential=0;
+uint16_t voltage_cathode=0;
+uint16_t current_potential=0;
+uint16_t current_cathode=0;
 int OT_POT = 19;
 int EN_POT=18;
 int OT_CAT=16;
@@ -416,33 +419,57 @@ int handleLocalWrite(uint8_t localCommand, uint8_t * data, uint8_t len, uint8_t 
   }
   case eVPGMPotential:{
     // write to I2C? should be 12-bit DAC, MCP4728, aka two bytes (not more than 4096 in total value).
-    memcpy((uint8_t * ) &write_val_potential, data, len);
-    memcpy(respData,(uint8_t *) &write_val_potential, len);
-    POTChannelProgram(write_val_potential, 3);
+    memcpy((uint8_t * ) &voltage_potential, data, len);
+    if(((int) voltage_potential <= 4095) && ((int) voltage_potential >= 0)){
+      POTChannelProgram(voltage_potential, 3);
+      memcpy(respData,(uint8_t *) &voltage_potential, len);
+    }
+    else {
+      voltage_potential=65535;  // set to all ones if the value was too high for the 12bit DAC
+      memcpy(respData,(uint8_t *) &voltage_potential, len);
+    }
     retval=len;
     break;
   }
   case eIPGMPotential:{
     // write to I2C? should be 12-bit DAC, MCP4728, aka two bytes (not more than 4096 in total value).
-    memcpy((uint8_t * ) &write_val_potential, data, len);
-    memcpy(respData,(uint8_t *) &write_val_potential, len);
-    POTChannelProgram(write_val_potential, 0);
+    memcpy((uint8_t * ) &current_potential, data, len);
+    if(((int) current_potential <= 4095) && ((int) current_potential >= 0)){
+      POTChannelProgram(current_potential, 0);
+      memcpy(respData,(uint8_t *) &current_potential, len);
+    }
+    else {
+      current_potential=65535;  // set to all ones if the value was too high for the 12bit DAC
+      memcpy(respData,(uint8_t *) &current_potential, len);
+    }
     retval=len;
     break;
   }
   case eVPGMCathode:{
     // write to I2C? should be 12-bit DAC, MCP4728, aka two bytes (not more than 4096 in total value).
-    memcpy((uint8_t * ) &write_val_potential, data, len);
-    memcpy(respData,(uint8_t *) &write_val_potential, len);
-    CATChannelProgram(write_val_potential, 3);
+    memcpy((uint8_t * ) &voltage_cathode, data, len);
+    if(((int) voltage_cathode <= 4095) && ((int) voltage_cathode >= 0)){
+      CATChannelProgram(voltage_cathode, 3);
+      memcpy(respData,(uint8_t *) &voltage_cathode, len);
+    }
+    else {
+      voltage_cathode=65535;  // set to all ones if the value was too high for the 12bit DAC
+      memcpy(respData,(uint8_t *) &voltage_cathode, len);
+    }
     retval=len;
     break;
   }
   case eIPGMCathode:{
     // write to I2C? should be 12-bit DAC, MCP4728, aka two bytes (not more than 4096 in total value).
-    memcpy((uint8_t * ) &write_val_potential, data, len);
-    memcpy(respData,(uint8_t *) &write_val_potential, len);
-    CATChannelProgram(write_val_potential, 0);
+    memcpy((uint8_t * ) &current_cathode, data, len);
+    if(((int) current_cathode <= 4095) && ((int) current_cathode >= 0)){
+      CATChannelProgram(current_cathode, 0);
+      memcpy(respData,(uint8_t *) &current_cathode, len);
+    }
+    else {
+      current_cathode=65535;  // set to all ones if the value was too high for the 12bit DAC
+      memcpy(respData,(uint8_t *) &current_cathode, len);
+    }
     retval=len;
     break;
   }
@@ -503,6 +530,27 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
     retval=sizeof(sDCTHV);
     break;
   }
+  case eVPGMPotential:{
+    memcpy(buffer, (uint8_t *) &voltage_potential,sizeof(voltage_potential));
+    retval=sizeof(voltage_potential);
+    break;
+  }
+  case eIPGMPotential:{
+    memcpy(buffer, (uint8_t *) &current_potential,sizeof(current_potential));
+    retval=sizeof(current_potential);
+    break;
+  }
+  case eVPGMCathode:{
+    memcpy(buffer, (uint8_t *) &voltage_cathode,sizeof(voltage_cathode));
+    retval=sizeof(voltage_cathode);
+    break;
+  }
+  case eIPGMCathode:{
+    memcpy(buffer, (uint8_t *) &current_cathode,sizeof(current_cathode));
+    retval=sizeof(current_cathode);
+    break;
+  }
+
   case eVMONCathode:{
     memcpy(buffer, (uint8_t *) hvmon.CatVmon,sizeof(hvmon.CatVmon));
     retval=sizeof(hvmon.CatVmon);
