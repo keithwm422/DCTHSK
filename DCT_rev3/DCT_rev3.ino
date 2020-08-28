@@ -165,14 +165,14 @@ void setup()
 */
 // The DACs on I2C on ports 1 and 3 have an LDAC pin that goes to 17 (LDAC Potential DAC) and 14 (LDAC Cathode DAC) 
 // which can be used if programming the DACs address and updating output registers.
-  pinMode(17,OUTPUT);
-  pinMode(14,OUTPUT);
+  pinMode(pot_LDAC,OUTPUT);
+  pinMode(cat_LDAC,OUTPUT);
   wire_pressure->begin();
   wire_potential->begin(); // pass the I2C ports number 0=not used, 1=cathode pgm, 2=pressure, 3=potential pgm
   wire_cathode->begin();
   // run setup of I2C stuff from support_functions
-  POTSetup(*wire_potential,17);
-  CATSetup(*wire_cathode, 14);
+  POTSetup(*wire_potential,pot_LDAC);
+  CATSetup(*wire_cathode, cat_LDAC);
   PressureSetup(*wire_pressure);
   delay(100);
   // Setup thermistors reads
