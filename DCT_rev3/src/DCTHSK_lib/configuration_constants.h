@@ -28,7 +28,7 @@ Minimizes the amount of code with addressing thats needs to be written.
 // -- SPI Code related data --
 //**********************************************************************************************************
 #define Nonsense -9999
-#define MaxWaitSpi 50
+#define MaxWaitSpi 200
 
 
 

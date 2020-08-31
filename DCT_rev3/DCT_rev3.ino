@@ -176,6 +176,15 @@ void setup()
   PressureSetup(*wire_pressure);
   delay(100);
   // Setup thermistors reads
+  // chip selects setup here and set to all high
+  pinMode(CHIP_SELECT_A, OUTPUT);
+  pinMode(CHIP_SELECT_B, OUTPUT);
+  pinMode(CHIP_SELECT_C, OUTPUT);
+  pinMode(CHIP_SELECT_D, OUTPUT);
+  pinMode(CHIP_SELECT_E, OUTPUT);
+  // set all CS to high
+  set_CS_all_high();
+  delay (1000);
   Initialize_TM4C123();
   //delay(200);
   // Setup Thermistors after Initiliazing the SPI and chip selects
