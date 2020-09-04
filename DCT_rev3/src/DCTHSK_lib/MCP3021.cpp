@@ -39,7 +39,7 @@ uint16_t MCP3021::readADC(){
     dataRead[1] = 0b00000000; // set array to 0 at creation
     
     uint16_t value; // declare the variable to store and then return the reading
-    
+    if(Wire_->available()) Wire_->flush();
     Wire_->requestFrom(_deviceAddress, 2);// request 2 bytes from mcp3021
     for(int i =0; Wire_->available() > 0;i++)//while device is available (should count to 2)
     {

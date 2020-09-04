@@ -1,4 +1,6 @@
-#include "SPI_user.h"  // include the SPI library
+// if SPI_user.h doesnt work lets try the older tiva-c release of 1.0.3 edited SPI class
+//#include "SPI_1_0_4_version/SPI_user.h"
+#include "SPI_1_0_3_version/SPI_user_1_0_3.h"
 #include "driverlib/uart.h"
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"

@@ -39,12 +39,27 @@ uint16_t MCP3021::readADC(){
     dataRead[1] = 0b00000000; // set array to 0 at creation
     
     uint16_t value; // declare the variable to store and then return the reading
-    
-    Wire_->requestFrom(_deviceAddress, 2);// request 2 bytes from mcp3021
-    for(int i =0; Wire_->available() > 0;i++)//while device is available (should count to 2)
-    {
-        dataRead[i] = Wire_->read();
+    if(Wire_->available()){
+      Wire_->flush();
     }
+    Wire_->requestFrom(_deviceAddress, 2);// request 2 bytes from mcp3021
+//    for(int i =0; Wire_->available() > 0;i++)//while device is available (should count to 2)
+//    {
+//        dataRead[i] = Wire_->read();
+//    }
+    int i=0;
+    Serial.println(Wire_->available());
+    if(Wire_->available()){
+      dataRead[0]=Wire_->read();
+      dataRead[1]=Wire_->read();
+    }
+    else {
+      dataRead[0]=0b11111111;
+      dataRead[1]=0b11111111;
+      value=(uint16_t) (dataRead[1] << 8) | (uint16_t) dataRead[0];
+      return value;
+    }
+
     value = (value | dataRead[0]) << 6; // we take the first byte and shift left 6 places since Value is 2 bytes
     dataRead[1] = dataRead[1] >> 2; //we take the second byte and shift it to the right 2 places,  this drops the 00 off the end
     value = value | dataRead[1]; // we OR both bytes to add them togeather

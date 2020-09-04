@@ -1,64 +1,14 @@
-/*!
 
-
-
-LTC2983_support_functions.cpp:
-This file contains all the support functions used in the main program.
-
-
-http://www.analog.com/en/products/analog-to-digital-converters/integrated-special-purpose-converters/digital-temperature-sensors/LTC2983.html
-
-http://www.analog.com/en/products/analog-to-digital-converters/integrated-special-purpose-converters/digital-temperature-sensors/LTC2983#product-evaluationkit
-
-$Revision: 1.7.9 $
-$Date: September 7, 2018 $
-Copyright (c) 2018, Analog Devices, Inc. (ADI)
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-The views and conclusions contained in the software and documentation are those
-of the authors and should not be interpreted as representing official policies,
-either expressed or implied, of Analog Devices, Inc.
-
-The Analog Devices Linduino is not affiliated with the official Arduino team.
-However, the Linduino is only possible because of the Arduino team's commitment
-to the open-source community.  Please, visit http://www.arduino.cc and
-http://store.arduino.cc , and consider a purchase that will help fund their
-ongoing work.
-*/
-
-
-
-
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <stdint.h>
-#include "SPI_user.h"
+#include "SPI_user_1_0_3.h"
 #include "LTC2983_configuration_constants.h"
 #include "LTC2983_table_coeffs.h"
 #include "LTC2983_support_functions.h"
 #define output_high(pin)  digitalWrite(pin, HIGH)
 #define output_low(pin)  digitalWrite(pin, LOW)
 
-SPIUserClass TM4CSPI(0);
+SPIUserClass_3 TM4CSPI(0);
 #define TM4CSPI_clock 11 
 //! Prints the title block when program first starts.
 
@@ -68,7 +18,7 @@ void initialize_TM4C(uint8_t chip_select){
   TM4CSPI.Userbegin();
   uint8_t data = transfer_four_bytes(chip_select, READ_FROM_RAM, COMMAND_STATUS_REGISTER, 0);
   //uint8_t data = transfer_byte(chip_select, READ_FROM_RAM, COMMAND_STATUS_REGISTER, 0);
-    Serial.print(data,HEX);
+
 }
 
 void print_title()
@@ -100,21 +50,21 @@ void write_custom_table(uint8_t chip_select, struct table_coeffs coefficients[64
 
   output_low(chip_select);
 
-  SPI.transfer(WRITE_TO_RAM);
-  SPI.transfer(highByte(start_address));
-  SPI.transfer(lowByte(start_address));
+  TM4CSPI.transfer(WRITE_TO_RAM);
+  TM4CSPI.transfer(highByte(start_address));
+  TM4CSPI.transfer(lowByte(start_address));
 
   for (i=0; i< table_length; i++)
   {
     coeff = coefficients[i].measurement;
-    SPI.transfer((uint8_t)(coeff >> 16));
-    SPI.transfer((uint8_t)(coeff >> 8));
-    SPI.transfer((uint8_t)coeff);
+    TM4CSPI.transfer((uint8_t)(coeff >> 16));
+    TM4CSPI.transfer((uint8_t)(coeff >> 8));
+    TM4CSPI.transfer((uint8_t)coeff);
 
     coeff = coefficients[i].temperature;
-    SPI.transfer((uint8_t)(coeff >> 16));
-    SPI.transfer((uint8_t)(coeff >> 8));
-    SPI.transfer((uint8_t)coeff);
+    TM4CSPI.transfer((uint8_t)(coeff >> 16));
+    TM4CSPI.transfer((uint8_t)(coeff >> 8));
+    TM4CSPI.transfer((uint8_t)coeff);
   }
   output_high(chip_select);
 }
@@ -127,17 +77,17 @@ void write_custom_steinhart_hart(uint8_t chip_select, uint32_t steinhart_hart_co
 
   output_low(chip_select);
 
-  SPI.transfer(WRITE_TO_RAM);
-  SPI.transfer(highByte(start_address));
-  SPI.transfer(lowByte(start_address));
+  TM4CSPI.transfer(WRITE_TO_RAM);
+  TM4CSPI.transfer(highByte(start_address));
+  TM4CSPI.transfer(lowByte(start_address));
 
   for (i = 0; i < 6; i++)
   {
     coeff = steinhart_hart_coeffs[i];
-    SPI.transfer((uint8_t)(coeff >> 24));
-    SPI.transfer((uint8_t)(coeff >> 16));
-    SPI.transfer((uint8_t)(coeff >> 8));
-    SPI.transfer((uint8_t)coeff);
+    TM4CSPI.transfer((uint8_t)(coeff >> 24));
+    TM4CSPI.transfer((uint8_t)(coeff >> 16));
+    TM4CSPI.transfer((uint8_t)(coeff >> 8));
+    TM4CSPI.transfer((uint8_t)coeff);
   }
   output_high(chip_select);
 }
@@ -148,11 +98,12 @@ void write_custom_steinhart_hart(uint8_t chip_select, uint32_t steinhart_hart_co
 // *****************
 // Measure channel
 // *****************
-void measure_channel(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
+float measure_channel(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
 {
     convert_channel(chip_select, channel_number);
  //   Serial.println("POOP");
-    get_result(chip_select, channel_number, channel_output);
+    float temperature=get_result(chip_select, channel_number, channel_output);
+    return temperature;
 }
 
 
@@ -183,7 +134,7 @@ void wait_for_process_to_finish(uint8_t chip_select)
 // *********************************
 // Get results
 // *********************************
-void get_result(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
+float get_result(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
 {
   uint32_t raw_data;
   uint8_t fault_data;
@@ -192,26 +143,27 @@ void get_result(uint8_t chip_select, uint8_t channel_number, uint8_t channel_out
 
   raw_data = transfer_four_bytes(chip_select, READ_FROM_RAM, start_address, 0);
 
-  Serial.print(F("\nChannel "));
-  Serial.println(channel_number);
+ // Serial.print(F("\nChannel "));
+  //Serial.println(channel_number);
 
   // 24 LSB's are conversion result
   raw_conversion_result = raw_data & 0xFFFFFF;
-  print_conversion_result(raw_conversion_result, channel_output);
+  float temperature=print_conversion_result(raw_conversion_result, channel_output);
 
   // If you're interested in the raw voltage or resistance, use the following
-  if (channel_output != VOLTAGE)
-  {
-    read_voltage_or_resistance_results(chip_select, channel_number);
-  }
+  //if (channel_output != VOLTAGE)
+  //{
+    //read_voltage_or_resistance_results(chip_select, channel_number);
+  //}
 
   // 8 MSB's show the fault data
   fault_data = raw_data >> 24;
-  print_fault_data(fault_data);
+  //print_fault_data(fault_data);
+  return temperature;
 }
 
 
-void print_conversion_result(uint32_t raw_conversion_result, uint8_t channel_output)
+float print_conversion_result(uint32_t raw_conversion_result, uint8_t channel_output)
 {
   int32_t signed_data = raw_conversion_result;
   float scaled_result;
@@ -224,14 +176,16 @@ void print_conversion_result(uint32_t raw_conversion_result, uint8_t channel_out
   if (channel_output == TEMPERATURE)
   {
     scaled_result = float(signed_data) / 1024;
-    Serial.print(F("  Temperature = "));
-    Serial.println(scaled_result);
+    //Serial.print(F("  Temperature = "));
+    //Serial.println(scaled_result);
+    return scaled_result;
   }
   else if (channel_output == VOLTAGE)
   {
     scaled_result = float(signed_data) / 2097152;
-    Serial.print(F("  Direct ADC reading in V = "));
-    Serial.println(scaled_result);
+    //Serial.print(F("  Direct ADC reading in V = "));
+    //Serial.println(scaled_result);
+    return scaled_result;
   }
   
 }

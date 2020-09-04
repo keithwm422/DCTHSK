@@ -7,13 +7,22 @@
 #include "driverlib/sysctl.h"
 #include "configuration_constants.h"
 #include "DCT_SPI_support_functions.h"
-#include "SPI_user.h"
+// if SPI_user.h doesnt work lets try the older tiva-c release of 1.0.3 edited SPI class
+//#include "SPI_1_0_4_version/SPI_user.h"
+#include "SPI_1_0_3_version/SPI_user_1_0_3.h" 
 //#include <chrono> 
 
 // *****************
 // Choose your SPI port
 // *****************
-SPIUserClass TM4CSPI(0);
+
+#ifdef _SPI_USER_1_0_3_H_INCLUDED
+SPIUserClass_3 TM4CSPI(0);
+#endif
+
+//#ifdef _SPI_USER_H_INCLUDED
+//SPIUserClass TM4CSPI(0);
+//#endif
 
 void set_CS_all_high(){
   digitalWrite(CHIP_SELECT_A,HIGH);
@@ -80,10 +89,12 @@ void write_custom_table(uint8_t chip_select, struct table_coeffs coefficients[64
 // *****************
 // Measure channel
 // *****************
-void measure_channel(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
+float measure_channel(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
 {
     convert_channel(chip_select, channel_number);
-    get_result(chip_select, channel_number, channel_output);
+ //   Serial.println("POOP");
+    float temperature=get_result(chip_select, channel_number, channel_output);
+    return temperature;
 }
 
 
@@ -91,6 +102,7 @@ void convert_channel(uint8_t chip_select, uint8_t channel_number)
 {
   // Start conversion
   transfer_byte(chip_select, WRITE_TO_RAM, COMMAND_STATUS_REGISTER, CONVERSION_CONTROL_BYTE | channel_number);
+    //Serial.println("POOP2");
 
   wait_for_process_to_finish(chip_select);
 }
@@ -103,6 +115,8 @@ void wait_for_process_to_finish(uint8_t chip_select)
   while (process_finished == 0)
   {
     data = transfer_byte(chip_select, READ_FROM_RAM, COMMAND_STATUS_REGISTER, 0);
+   // Serial.print(data,HEX);
+   // delay(100);
     process_finished  = data & 0x40;
   }
 }
@@ -111,7 +125,7 @@ void wait_for_process_to_finish(uint8_t chip_select)
 // *********************************
 // Get results
 // *********************************
-void get_result(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
+float get_result(uint8_t chip_select, uint8_t channel_number, uint8_t channel_output)
 {
   uint32_t raw_data;
   uint8_t fault_data;
@@ -120,26 +134,27 @@ void get_result(uint8_t chip_select, uint8_t channel_number, uint8_t channel_out
 
   raw_data = transfer_four_bytes(chip_select, READ_FROM_RAM, start_address, 0);
 
-  Serial.print(F("\nChannel "));
-  Serial.println(channel_number);
+ // Serial.print(F("\nChannel "));
+  //Serial.println(channel_number);
 
   // 24 LSB's are conversion result
   raw_conversion_result = raw_data & 0xFFFFFF;
-  print_conversion_result(raw_conversion_result, channel_output);
+  float temperature=print_conversion_result(raw_conversion_result, channel_output);
 
   // If you're interested in the raw voltage or resistance, use the following
-  if (channel_output != VOLTAGE)
-  {
-    read_voltage_or_resistance_results(chip_select, channel_number);
-  }
+  //if (channel_output != VOLTAGE)
+  //{
+    //read_voltage_or_resistance_results(chip_select, channel_number);
+  //}
 
   // 8 MSB's show the fault data
   fault_data = raw_data >> 24;
-  print_fault_data(fault_data);
+  //print_fault_data(fault_data);
+  return temperature;
 }
 
 
-void print_conversion_result(uint32_t raw_conversion_result, uint8_t channel_output)
+float print_conversion_result(uint32_t raw_conversion_result, uint8_t channel_output)
 {
   int32_t signed_data = raw_conversion_result;
   float scaled_result;
@@ -152,18 +167,19 @@ void print_conversion_result(uint32_t raw_conversion_result, uint8_t channel_out
   if (channel_output == TEMPERATURE)
   {
     scaled_result = float(signed_data) / 1024;
-    Serial.print(F("  Temperature = "));
-    Serial.println(scaled_result);
+    //Serial.print(F("  Temperature = "));
+    //Serial.println(scaled_result);
+    return scaled_result;
   }
   else if (channel_output == VOLTAGE)
   {
     scaled_result = float(signed_data) / 2097152;
-    Serial.print(F("  Direct ADC reading in V = "));
-    Serial.println(scaled_result);
+    //Serial.print(F("  Direct ADC reading in V = "));
+    //Serial.println(scaled_result);
+    return scaled_result;
   }
   
 }
-
 
 void read_voltage_or_resistance_results(uint8_t chip_select, uint8_t channel_number)
 {

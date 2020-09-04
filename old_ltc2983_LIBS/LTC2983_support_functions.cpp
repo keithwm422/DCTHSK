@@ -49,16 +49,16 @@ ongoing work.
 
 
 
-#include <Arduino.h>
+//#include <Arduino.h>
 #include <stdint.h>
-#include "SPI_user.h"
+#include "SPI_user_1_0_3.h"
 #include "LTC2983_configuration_constants.h"
 #include "LTC2983_table_coeffs.h"
-#include "DCT_SPI_rev2.h"
+#include "LTC2983_support_functions.h"
 #define output_high(pin)  digitalWrite(pin, HIGH)
 #define output_low(pin)  digitalWrite(pin, LOW)
 
-SPIUserClass TM4CSPI(0);
+SPIUserClass_3 TM4CSPI(0);
 #define TM4CSPI_clock 11 
 //! Prints the title block when program first starts.
 
@@ -66,8 +66,9 @@ void initialize_TM4C(uint8_t chip_select){
   pinMode(TM4CSPI_clock, OUTPUT);
   digitalWrite(TM4CSPI_clock, 1);
   TM4CSPI.Userbegin();
-//  uint8_t data = transfer_four_bytes(chip_select, READ_FROM_RAM, COMMAND_STATUS_REGISTER, 0);
+  uint8_t data = transfer_four_bytes(chip_select, READ_FROM_RAM, COMMAND_STATUS_REGISTER, 0);
   //uint8_t data = transfer_byte(chip_select, READ_FROM_RAM, COMMAND_STATUS_REGISTER, 0);
+    Serial.print(data,HEX);
 }
 
 void print_title()
@@ -99,21 +100,21 @@ void write_custom_table(uint8_t chip_select, struct table_coeffs coefficients[64
 
   output_low(chip_select);
 
-  SPI.transfer(WRITE_TO_RAM);
-  SPI.transfer(highByte(start_address));
-  SPI.transfer(lowByte(start_address));
+  TM4CSPI.transfer(WRITE_TO_RAM);
+  TM4CSPI.transfer(highByte(start_address));
+  TM4CSPI.transfer(lowByte(start_address));
 
   for (i=0; i< table_length; i++)
   {
     coeff = coefficients[i].measurement;
-    SPI.transfer((uint8_t)(coeff >> 16));
-    SPI.transfer((uint8_t)(coeff >> 8));
-    SPI.transfer((uint8_t)coeff);
+    TM4CSPI.transfer((uint8_t)(coeff >> 16));
+    TM4CSPI.transfer((uint8_t)(coeff >> 8));
+    TM4CSPI.transfer((uint8_t)coeff);
 
     coeff = coefficients[i].temperature;
-    SPI.transfer((uint8_t)(coeff >> 16));
-    SPI.transfer((uint8_t)(coeff >> 8));
-    SPI.transfer((uint8_t)coeff);
+    TM4CSPI.transfer((uint8_t)(coeff >> 16));
+    TM4CSPI.transfer((uint8_t)(coeff >> 8));
+    TM4CSPI.transfer((uint8_t)coeff);
   }
   output_high(chip_select);
 }
@@ -126,17 +127,17 @@ void write_custom_steinhart_hart(uint8_t chip_select, uint32_t steinhart_hart_co
 
   output_low(chip_select);
 
-  SPI.transfer(WRITE_TO_RAM);
-  SPI.transfer(highByte(start_address));
-  SPI.transfer(lowByte(start_address));
+  TM4CSPI.transfer(WRITE_TO_RAM);
+  TM4CSPI.transfer(highByte(start_address));
+  TM4CSPI.transfer(lowByte(start_address));
 
   for (i = 0; i < 6; i++)
   {
     coeff = steinhart_hart_coeffs[i];
-    SPI.transfer((uint8_t)(coeff >> 24));
-    SPI.transfer((uint8_t)(coeff >> 16));
-    SPI.transfer((uint8_t)(coeff >> 8));
-    SPI.transfer((uint8_t)coeff);
+    TM4CSPI.transfer((uint8_t)(coeff >> 24));
+    TM4CSPI.transfer((uint8_t)(coeff >> 16));
+    TM4CSPI.transfer((uint8_t)(coeff >> 8));
+    TM4CSPI.transfer((uint8_t)coeff);
   }
   output_high(chip_select);
 }

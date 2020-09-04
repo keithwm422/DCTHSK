@@ -62,7 +62,7 @@ housekeeping_hdr_t * hdr_in;     housekeeping_hdr_t * hdr_out;
 housekeeping_err_t * hdr_err;   housekeeping_prio_t * hdr_prio;
 /* Memory buffers for housekeeping system functions */
 uint8_t numDevices = 0;           // Keep track of how many devices are upstream
-uint8_t commandPriority[NUM_LOCAL_CONTROLS] = {0};     // Each command's priority takes up one byte
+uint8_t commandPriority[NUM_LOCAL_CONTROLS] = {1,0,0,3,2,0,0,3};     // Each command's priority takes up one byte
 PacketSerial *serialDevices = &downStream1;
 uint8_t addressList = 0; // List of all downstream devices
 
@@ -234,7 +234,7 @@ void loop()
     if(chip_to_read>=5) chip_to_read=0;
     if(counter_all>=25) counter_all=0;
     */
-    thermistors.Therms[0] = return_temperature_2((uint8_t)CHIP_SELECT_A, temp_channels[0]);
+    thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_E, temp_channels[0],TEMPERATURE);
   }
   // read in HV monitoring
   if((long) (millis() - hvmonUpdateTime) > 0){

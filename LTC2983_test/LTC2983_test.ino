@@ -222,7 +222,7 @@ void loop()
   if(Serial.available()){
     char one_byte=Serial.read();
     if (one_byte==65){
-      measure_channel(CHIP_SELECT_A, 8, TEMPERATURE);
+      Serial.print(measure_channel(CHIP_SELECT_A, 4, TEMPERATURE),2);
     }
     else if(one_byte==66) {
       measure_channel(CHIP_SELECT_B, 8, TEMPERATURE);

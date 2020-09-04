@@ -35,9 +35,9 @@ unsigned long  i2c_1=1;
 unsigned long  i2c_2=2;
 unsigned long i2c_3=3;
 // declare 3 two wire objs
-//TwoWire *wire_1= new TwoWire(i2c_1); // i2C object for the i2c port on the launchpad
-//TwoWire *wire_2= new TwoWire(i2c_2); // i2C object for the i2c port on the launchpad
-//TwoWire *wire_3= new TwoWire(i2c_3); // i2C object for the i2c port on the launchpad
+TwoWire *wire_1= new TwoWire(i2c_1); // i2C object for the i2c port on the launchpad
+TwoWire *wire_2= new TwoWire(i2c_2); // i2C object for the i2c port on the launchpad
+TwoWire *wire_3= new TwoWire(i2c_3); // i2C object for the i2c port on the launchpad
 MCP3021 pressure_adc;
 MCP4728_POT pot_dac;
 MCP4728_CAT cat_dac;
@@ -58,15 +58,15 @@ void setup() {
 // begin both twowire libs (default off LEDs!)
 //  wire_2->setModule(i2c_3);
 //  wire_1->setModule(i2c_1);
-  Wire2.begin();
-//  wire_2->begin();
-//  wire_3->begin();
-//  wire_1->begin();
-  Wire3.begin();
-//  CATSetup(*wire_1, 14);
-//  PressureSetup(Wire2);
+//  Wire2.begin();
+  wire_2->begin();
+  wire_3->begin();
+  wire_1->begin();
+//  Wire3.begin();
+  CATSetup(*wire_1, 14);
+  PressureSetup(*wire_2);
   Serial.print(PressureRead());
-  POTSetup(Wire3,17);
+  POTSetup(*wire_3,17);
   Serial.println("entering loop");
   pinMode(LED,OUTPUT);
   digitalWrite(LED,HIGH);
@@ -93,7 +93,7 @@ void loop() {
       Serial.print("3\n");
     }
     else if(one_byte == 52){  //4
-      Serial.print(PressureRead());
+      Serial.print(PressureRead(),HEX);
       Serial.print("4\n");
     }
     else if(one_byte==53){ // 5
