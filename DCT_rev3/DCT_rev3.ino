@@ -21,7 +21,7 @@
 #include <Hsk_all_data_types.h>
 /* These are device specific */
 #include "src/DCTHSK_lib/DCTHSK_protocol.h"
-// for LTC2983
+// from magnet hsk for LTC2983
 
 #include "driverlib/uart.h"
 #include "inc/hw_memmap.h"
@@ -138,7 +138,7 @@ void setup()
   downStream1.setStream(&Serial);
   downStream1.setPacketHandler(&checkHdr);
   // Serial port for downstream to Main HSK
- //Serial1.begin(DOWNBAUD);
+  //Serial1.begin(DOWNBAUD);
   //downStream1.setStream(&Serial1);
   //downStream1.setPacketHandler(&checkHdr);
   // LED on launchpad
@@ -216,35 +216,36 @@ void loop()
   // do a read based on timer and for the counter and chip_to_read
   // channel number is the pin number from the ltc2983 reading method. 4,8,12,16,20.
   // if counter is 0,5,10,15,20 then read 4, if 1,6,11,16,21 then 8, etc.
-  if((long) (millis() - thermsUpdateTime) > 0){
+  /*if((long) (millis() - thermsUpdateTime) > 0){
     thermsUpdateTime+= THERMS_UPDATE_PERIOD;
     switch(chip_to_read){
       case 0:
         thermistors.Therms[counter_all] = measure_channel((uint8_t)CHIP_SELECT_A, temp_channels[counter],TEMPERATURE);
         break;
       case 1:
-        thermistors.Therms[counter_all] = return_temperature_2((uint8_t)CHIP_SELECT_B, temp_channels[counter]);
+        thermistors.Therms[counter_all] = measure_channel((uint8_t)CHIP_SELECT_B, temp_channels[counter],TEMPERATURE);
         break;
       case 2:
-        thermistors.Therms[counter_all] = return_temperature_2((uint8_t)CHIP_SELECT_C, temp_channels[counter]);
+        thermistors.Therms[counter_all] = measure_channel((uint8_t)CHIP_SELECT_C, temp_channels[counter],TEMPERATURE);
         break;
       case 3:
-        thermistors.Therms[counter_all] = return_temperature_2((uint8_t)CHIP_SELECT_D, temp_channels[counter]);
+        thermistors.Therms[counter_all] = measure_channel((uint8_t)CHIP_SELECT_D, temp_channels[counter],TEMPERATURE);
         break;
       case 4:
-        thermistors.Therms[counter_all] = return_temperature_2((uint8_t)CHIP_SELECT_E, temp_channels[counter]);
+        thermistors.Therms[counter_all] = measure_channel((uint8_t)CHIP_SELECT_E, temp_channels[counter],TEMPERATURE);
         break;
     }
     counter++;
     counter_all++;
-    if(counter==5){
+    if(counter>=5){
       chip_to_read++;
       counter=0;
     }
     if(chip_to_read>=5) chip_to_read=0;
-    if(counter_all>=25) counter_all=0;
-    //thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_E, temp_channels[0],TEMPERATURE);
+    if(counter_all>=25) counter_all=0;    
+    //thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_C, temp_channels[1],TEMPERATURE);
   }
+  */
   // read in HV monitoring
   if((long) (millis() - hvmonUpdateTime) > 0){
     hvmonUpdateTime+= HVMON_UPDATE_PERIOD;
