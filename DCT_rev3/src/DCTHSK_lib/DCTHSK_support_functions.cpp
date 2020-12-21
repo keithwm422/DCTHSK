@@ -126,6 +126,13 @@ bool CATSetup(TwoWire& wire, uint8_t LDAC){
   return 0;
 }
 
+bool CATSetVREF(){
+  cat_dac.setID(default_address);
+  cat_dac.selectVref(MCP4728_CAT::VREF::VDD, MCP4728_CAT::VREF::VDD, MCP4728_CAT::VREF::VDD, MCP4728_CAT::VREF::VDD);
+  return 1;
+}
+
+
 bool CATProgram_all(uint16_t * data){
   cat_dac.setID(default_address);
   delayMicroseconds(100);
@@ -154,6 +161,12 @@ bool POTSetup(TwoWire& wire, uint8_t LDAC){
 //  for(int j=0;j<4;j++) dac_val=dac_val | pot_dac.getDACData(j);
   if(dac_val==0) return 1;
   return 0;
+}
+
+bool POTSetVREF(){
+  pot_dac.setID(default_address);
+  pot_dac.selectVref(MCP4728_POT::VREF::VDD, MCP4728_POT::VREF::VDD, MCP4728_POT::VREF::VDD, MCP4728_POT::VREF::VDD);
+  return 1;
 }
 
 bool POTProgram_all(uint16_t * data){

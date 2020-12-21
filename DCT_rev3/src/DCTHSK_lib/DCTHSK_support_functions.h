@@ -30,11 +30,15 @@ uint16_t PressureRead();
 // for the HV programming pins.
 bool CATSetup(TwoWire& wire, uint8_t LDAC);
 
+bool CATSetVREF();
+
 bool CATProgram_all(uint16_t * data);
 
 bool CATChannelProgram(uint16_t data, uint8_t channel);
 
 bool POTSetup(TwoWire& wire, uint8_t LDAC);
+
+bool POTSetVREF();
 
 bool POTProgram_all(uint16_t * data);
 

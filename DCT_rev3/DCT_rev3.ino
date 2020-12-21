@@ -37,7 +37,7 @@
 // these files above need to be changed based on the thermistor or rtd, etc. So if we borrow the examples from magnet hsk then we can change the channels and types in just these files but keep the function the same. 
 //////////////////////////////////////
 #define DOWNBAUD 115200 // Baudrate to the SFC
-#define UPBAUD 38400    // Baudrate to upsteam devices
+#define UPBAUD 19200    // Baudrate to upsteam devices
 #define TEST_MODE_PERIOD 100 // period in milliseconds between testmode packets being sent
 #define FIRST_LOCAL_COMMAND 2 // value of hdr->cmd that is the first command local to the board
 #define NUM_LOCAL_CONTROLS 8 // how many commands total are local to the board
@@ -102,11 +102,33 @@ uint16_t current_potential=0;
 uint16_t current_cathode=0;
 int OT_POT = 19;
 int EN_POT=18;
-int OT_CAT=16;
+int OT_CAT=37; // DCTHSK board needs jumper from pos 16 pad to pos 37 pad and remove the pin (D'OH- pin 16 is RESET pin and is always high).
 int EN_CAT=15;
 uint32_t hv_read;
 uint8_t which_adc = 0;
 sDCTHV hvmon;
+sDCTHVConverted hvmonconverted;
+bool is_cathode_disabled=true;
+bool is_potential_disabled=true;
+int ot_cathode_read=0;
+int ot_potential_read=0;
+// convert the ADC reads to a voltage (and to a mA or kV).
+float pres_val=0;
+float cat_v=0;
+float conversion_factor=3.3*1406.0/(1000.0*4096.0); // each ADC has a voltage divider and is 12-bits (3.3V FSR) so thats these numbers. 
+float conv_factor_HV=conversion_factor*(1000.0/4.64);
+float conv_factor_current=conversion_factor*(1.5/4.64);
+// for ramping and pausing or resuming the ramping
+bool step_HV_C=false; // for storing the status of ramping or not ramping
+bool step_HV_P=false;
+unsigned long step_HV_C_time=0;
+unsigned long step_HV_P_time=0;
+#define CATHODE_VOLTAGE_CUTOFF 4000
+#define CATHODE_VOLTAGE_STEP_PERIOD 5000 // five seconds
+#define CATHODE_VOLTAGE_STEP_VALUE 130 // in DAC counts (12-bit DAC)
+#define POTENTIAL_VOLTAGE_CUTOFF 4000
+#define POTENTIAL_VOLTAGE_STEP_PERIOD 5000 // five seconds
+#define POTENTIAL_VOLTAGE_STEP_VALUE 130 // in DAC counts
 // For thermistors
 #define NUM_THERMS 25
 //float thermistor_temps[NUM_THERMS]={0};
@@ -122,6 +144,10 @@ int counter_all=0;
 // for heater sheets
 uint8_t change_all[3]={254,171,0}; // default to zero
 uint8_t change_one[4]={254,170,0,0};
+uint8_t potentiometer1_says[100];
+uint8_t potentiometer2_says[100];
+int pot_1_iter=0;
+int pot_2_iter=0;
 
 // for Launchpad LED
 #define LED GREEN_LED
@@ -144,8 +170,8 @@ void setup()
   // LED on launchpad
   pinMode(LED, OUTPUT);
   digitalWrite(LED,HIGH);
-//  Serial3.begin(UPBAUD); //Pot A serial port
-//  Serial2.begin(UPBAUD); //Pot B serial port
+  Serial3.begin(UPBAUD); //Pot A serial port
+  Serial2.begin(UPBAUD); //Pot B serial port
   // Point to data in a way that it can be read as a header
   hdr_out = (housekeeping_hdr_t *) outgoingPacket;
   hdr_err = (housekeeping_err_t *) (outgoingPacket + hdr_size);
@@ -158,11 +184,12 @@ void setup()
 // These are, in order, A4,A2,A1,A0 (ADC labels from TM4C launchpad). 
 // HV System has Binary pins also: OverTemp Fault, and Enable Input: 19 (OT Potential Field), 18 (EN Potential Field), 16 (OT Cathode Field), 15 (EN Cathode Field)
 // like this: pinMode(15,INPUT);
-/*  pinMode(OT_POT,INPUT);
-  pinMode(EN_POT,INPUT);
+  pinMode(OT_POT,INPUT);
+  pinMode(EN_POT,OUTPUT);
   pinMode(OT_CAT,INPUT);
-  pinMode(EN_CAT,INPUT);
-*/
+  pinMode(EN_CAT,OUTPUT);
+  digitalWrite(EN_CAT,LOW);
+  digitalWrite(EN_POT,LOW);
 // The DACs on I2C on ports 1 and 3 have an LDAC pin that goes to 17 (LDAC Potential DAC) and 14 (LDAC Cathode DAC) 
 // which can be used if programming the DACs address and updating output registers.
   pinMode(pot_LDAC,OUTPUT);
@@ -188,6 +215,7 @@ void setup()
   Initialize_TM4C123();
   //delay(200);
   // Setup Thermistors after Initiliazing the SPI and chip selects
+  
   configure_channels((uint8_t)CHIP_SELECT_A);
   configure_global_parameters((uint8_t)CHIP_SELECT_A);
   configure_channels((uint8_t)CHIP_SELECT_B);
@@ -198,7 +226,7 @@ void setup()
   configure_global_parameters((uint8_t)CHIP_SELECT_D);
   configure_channels((uint8_t)CHIP_SELECT_E);
   configure_global_parameters((uint8_t)CHIP_SELECT_E);
-
+  
   digitalWrite(LED,LOW);
 
 }
@@ -208,6 +236,18 @@ void setup()
  ******************************************************************************/
 void loop()
 {
+  // see if potentiometers have said anything recently and just store the most recent byte
+  if(Serial3.available()){
+        potentiometer1_says[pot_1_iter]=Serial3.read();
+        pot_1_iter++;
+  }
+  if(Serial2.available()){
+        potentiometer2_says[pot_2_iter]=Serial2.read();
+        pot_2_iter++;
+  }
+  if(pot_1_iter>99) pot_1_iter=0;
+  if(pot_2_iter>99) pot_2_iter=0;
+
   // can try this code first if desired, but blocking should be fine for the DCT HSK
   
 
@@ -216,9 +256,9 @@ void loop()
   // do a read based on timer and for the counter and chip_to_read
   // channel number is the pin number from the ltc2983 reading method. 4,8,12,16,20.
   // if counter is 0,5,10,15,20 then read 4, if 1,6,11,16,21 then 8, etc.
-  /*if((long) (millis() - thermsUpdateTime) > 0){
+  if((long) (millis() - thermsUpdateTime) > 0){
     thermsUpdateTime+= THERMS_UPDATE_PERIOD;
-    switch(chip_to_read){
+   /* switch(chip_to_read){
       case 0:
         thermistors.Therms[counter_all] = measure_channel((uint8_t)CHIP_SELECT_A, temp_channels[counter],TEMPERATURE);
         break;
@@ -235,6 +275,7 @@ void loop()
         thermistors.Therms[counter_all] = measure_channel((uint8_t)CHIP_SELECT_E, temp_channels[counter],TEMPERATURE);
         break;
     }
+    */
     counter++;
     counter_all++;
     if(counter>=5){
@@ -243,9 +284,9 @@ void loop()
     }
     if(chip_to_read>=5) chip_to_read=0;
     if(counter_all>=25) counter_all=0;    
-    //thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_C, temp_channels[1],TEMPERATURE);
+    thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_A, temp_channels[0],TEMPERATURE);
   }
-  */
+  
   // read in HV monitoring
   if((long) (millis() - hvmonUpdateTime) > 0){
     hvmonUpdateTime+= HVMON_UPDATE_PERIOD;
@@ -257,6 +298,8 @@ void loop()
     }
     which_adc++;
     if(which_adc>=4) which_adc=0;
+    ot_potential_read=digitalRead(OT_POT);
+    ot_cathode_read=digitalRead(OT_CAT);
   }
   // read in pressure
   if((long) (millis() - pressureUpdateTime) > 0){
@@ -266,6 +309,46 @@ void loop()
   if((long) (millis() - LEDUpdateTime) > 0){
     LEDUpdateTime+= LED_UPDATE_PERIOD;
     switch_LED();
+  }
+
+  // RAMPING STUFF:
+  if(step_HV_C){
+    if((int) voltage_cathode >= CATHODE_VOLTAGE_CUTOFF){
+      step_HV_C=false;
+      //Serial.println("Ramping of Cathode wires complete, cutoff reached");
+      // should just stay at this value and then can be overwritten by the Cxxx command
+     // do i need some more stuff?
+    }
+    else{
+      if((long) (millis() - step_HV_C_time) > 0){
+        step_HV_C_time+= CATHODE_VOLTAGE_STEP_PERIOD;
+        voltage_cathode+=CATHODE_VOLTAGE_STEP_VALUE;
+        if((int) voltage_cathode <= CATHODE_VOLTAGE_CUTOFF) CATChannelProgram(voltage_cathode, 3);
+        else{
+          step_HV_C=false;
+          //Serial.println("Ramping of Cathode wires complete, cutoff reached");
+        }
+      }
+    }
+  }
+  if(step_HV_P){
+    if((int) voltage_potential >= POTENTIAL_VOLTAGE_CUTOFF){
+      step_HV_P=false;
+      //Serial.println("Ramping of Potential wires complete, cutoff reached");
+      // should just stay at this value and then can be overwritten by the Cxxx command
+     // do i need some more stuff?
+    }
+    else{
+      if((long) (millis() - step_HV_P_time) > 0){
+        step_HV_P_time+= POTENTIAL_VOLTAGE_STEP_PERIOD;
+        voltage_potential+=POTENTIAL_VOLTAGE_STEP_VALUE;
+        if((int) voltage_potential <= POTENTIAL_VOLTAGE_CUTOFF) POTChannelProgram(voltage_potential, 3);
+        else {
+          step_HV_P=false;
+          //Serial.println("Ramping of Potential wires complete, cutoff reached");
+        }
+      }
+    }
   }
   // for debugging just one channel at a time
 //  if((long) (millis() - thermsUpdateTime) > 0){
@@ -414,26 +497,24 @@ int handleLocalWrite(uint8_t localCommand, uint8_t * data, uint8_t len, uint8_t 
     retval=len;
     break;
   case eHeaterControlAll:{
-    //uint8_t pot_array[3]={254,171,*data};
-    //Serial3.write(254);
-    //Serial3.write(171);
-    //Serial3.write(*data);
-    //Serial5.write(pot_array,3);
-    uint8_t readval=0;
-    //readval=Serial3.read();
-    memcpy(respData,&readval,sizeof(readval));
-    retval = sizeof(readval);
+    //uint8_t pot_array[3]={254,171,*data}; // real potentiometer code
+    //Serial3.write(pot_array,3);
+    uint8_t pot_array[4]={254,171,*data,13}; // emulator code (add carriage return to the end)
+    Serial3.write(pot_array,4);
+    Serial2.write(pot_array,4);
+    retval = 0;
     break;
   }
   case eHeaterControlChannel:{
-    //Serial3.write(254);
-    //Serial3.write(170);
-    //Serial3.write(*data);
-    //Serial3.write(*data+1);
-     uint8_t readval=0;
-    //readval=Serial3.read();
-    memcpy(respData,&readval,sizeof(readval));
-    retval = sizeof(readval);
+    //uint8_t pot_array[4]={254,170,*data,*(data+1)}; // real potentiometer
+    uint8_t pot_array[5]={254,170,*data,*(data+1),13}; // emulator code (add carriage return to the end)
+    if(pot_array[2] >=0 && pot_array[2]<24){
+      //Serial3.write(pot_array,4);
+      //Serial2.write(pot_array,4);
+      Serial3.write(pot_array,5);
+      Serial2.write(pot_array,5);
+    }
+    retval = 0;
     break;
   }
   case eVPGMPotential:{
@@ -490,6 +571,88 @@ int handleLocalWrite(uint8_t localCommand, uint8_t * data, uint8_t len, uint8_t 
       memcpy(respData,(uint8_t *) &current_cathode, len);
     }
     retval=len;
+    break;
+  }
+  case eHVCatEN:{
+    uint8_t to_enable;
+    memcpy((uint8_t * ) &to_enable, data, len);
+    if(to_enable){
+      is_cathode_disabled=false;
+      digitalWrite(EN_CAT,HIGH);
+    }
+    else{
+      is_cathode_disabled=true;
+      digitalWrite(EN_CAT,LOW);
+    }
+    retval=0;
+    break;
+  }
+  case eHVPotEN:{
+    uint8_t to_enable;
+    memcpy((uint8_t * ) &to_enable, data, len);
+    if(to_enable){
+      is_potential_disabled=false;
+      digitalWrite(EN_POT,HIGH);
+    }
+    else{
+      is_potential_disabled=true;
+      digitalWrite(EN_POT,LOW);
+    }
+    retval=0;
+    break;
+  }
+  case eRampHVCat:{
+    step_HV_C=true;
+    step_HV_C_time=millis()+CATHODE_VOLTAGE_STEP_PERIOD;
+    voltage_cathode=0;
+    retval=0;
+    break;
+  }
+  case eRampHVPot:{
+    step_HV_P=true;
+    step_HV_P_time=millis()+POTENTIAL_VOLTAGE_STEP_PERIOD;
+    voltage_potential=0;
+    retval=0;
+    break;
+  }
+  case eCancelRamping:{
+    step_HV_P=false;
+    step_HV_C=false;
+    POTChannelProgram(0, 3);
+    CATChannelProgram(0, 3);
+    retval=0;
+    break;
+  }
+  case ePauseRamping:{
+    step_HV_P=false;
+    step_HV_C=false;
+    retval=0;
+    break;
+  }
+  case eResumeRamping:{
+    step_HV_P=true;
+    step_HV_C=true;
+    step_HV_P_time=millis()+POTENTIAL_VOLTAGE_STEP_PERIOD;
+    step_HV_C_time=millis()+CATHODE_VOLTAGE_STEP_PERIOD;
+    retval=0;
+    break;
+  }
+  case eHeaterStartupValue:{
+    //uint8_t pot_array[4]={254,172,*data,*(data+1)}; //real potentiometer
+    uint8_t pot_array[5]={254,172,*data,*(data+1),13}; // emulator code (add carriage return to the end)
+    if(pot_array[2] >=0 && pot_array[2]<24){
+      //Serial3.write(pot_array,4);
+      //Serial2.write(pot_array,4);
+      Serial3.write(pot_array,5);
+      Serial2.write(pot_array,5);
+    }
+    retval = 0;
+    break;
+  }
+  case eSetVREF:{
+    CATSetVREF();
+    POTSetVREF();
+    retval=0;
     break;
   }
   case ePacketCount:{
@@ -595,6 +758,30 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
     retval=sizeof(sDCTPressure);
     break;
   }
+  case eHVMonConverted:{
+    hvmonconverted.CatV=hvmon.CatVmon*conv_factor_HV;
+    hvmonconverted.CatI=hvmon.CatImon*conv_factor_current;
+    hvmonconverted.PotV=hvmon.PotVmon*conv_factor_HV;
+    hvmonconverted.PotI=hvmon.PotImon*conv_factor_current;
+    memcpy(buffer, (uint8_t *) &hvmonconverted,sizeof(sDCTHVConverted));
+    retval=sizeof(sDCTHVConverted);
+    break;
+  }
+  case eHVMonOTEN:{
+    memcpy(buffer, (uint8_t *) &ot_cathode_read,sizeof(ot_cathode_read));
+    memcpy(buffer+sizeof(ot_cathode_read), (uint8_t *) &ot_potential_read,sizeof(ot_potential_read));
+    memcpy(buffer+sizeof(ot_cathode_read)+sizeof(ot_potential_read), (uint8_t *) &is_cathode_disabled,sizeof(is_cathode_disabled));
+    memcpy(buffer+sizeof(ot_cathode_read)+sizeof(ot_potential_read)+sizeof(is_cathode_disabled), (uint8_t *) &is_potential_disabled,sizeof(is_potential_disabled));
+    retval=sizeof(ot_cathode_read)+sizeof(ot_potential_read)+sizeof(is_cathode_disabled)+sizeof(is_potential_disabled);
+    break;
+  }
+  case eReadHeaterResponse:{
+    memcpy(buffer, (uint8_t *) &potentiometer1_says,sizeof(potentiometer1_says));
+    memcpy(buffer+sizeof(potentiometer1_says), (uint8_t *) &potentiometer2_says,sizeof(potentiometer2_says));
+    retval=sizeof(potentiometer1_says)+sizeof(potentiometer2_says);
+    break;
+  }
+  
   case eISR: {
     uint32_t TempRead=analogRead(TEMPSENSOR);
     float TempC = (float)(1475 - ((2475 * TempRead) / 4096)) / 10;
@@ -605,9 +792,11 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
   case eReset: {
     SysCtlReset();
     retval = 0;
+    break;
   }
   default:
     retval=EBADCOMMAND;
+    break;
   }  
   return retval;
 }
