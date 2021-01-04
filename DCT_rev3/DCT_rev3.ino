@@ -160,13 +160,13 @@ bool is_high=true;
 void setup()
 {
   // to DEBUG this device when connecting directly to computer, use this serial port instead of Serial.1
-  Serial.begin(DOWNBAUD);
-  downStream1.setStream(&Serial);
-  downStream1.setPacketHandler(&checkHdr);
-  // Serial port for downstream to Main HSK
-  //Serial1.begin(DOWNBAUD);
-  //downStream1.setStream(&Serial1);
+  //Serial.begin(DOWNBAUD);
+  //downStream1.setStream(&Serial);
   //downStream1.setPacketHandler(&checkHdr);
+  // Serial port for downstream to Main HSK
+  Serial1.begin(DOWNBAUD);
+  downStream1.setStream(&Serial1);
+  downStream1.setPacketHandler(&checkHdr);
   // LED on launchpad
   pinMode(LED, OUTPUT);
   digitalWrite(LED,HIGH);
