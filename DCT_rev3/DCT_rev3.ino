@@ -102,7 +102,7 @@ uint16_t current_potential=0;
 uint16_t current_cathode=0;
 int OT_POT = 19;
 int EN_POT=18;
-int OT_CAT=37; // DCTHSK board needs jumper from pos 16 pad to pos 37 pad and remove the pin (D'OH- pin 16 is RESET pin and is always high).
+int OT_CAT=38; // DCTHSK board needs jumper from pos 16 pad to pos 38 pad and remove the pin (D'OH- pin 16 is RESET pin and is always high).
 int EN_CAT=15;
 uint32_t hv_read;
 uint8_t which_adc = 0;
