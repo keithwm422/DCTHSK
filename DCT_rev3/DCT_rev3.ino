@@ -194,13 +194,13 @@ void setup()
 // which can be used if programming the DACs address and updating output registers.
   pinMode(pot_LDAC,OUTPUT);
   pinMode(cat_LDAC,OUTPUT);
-  wire_pressure->begin();
-  wire_potential->begin(); // pass the I2C ports number 0=not used, 1=cathode pgm, 2=pressure, 3=potential pgm
-  wire_cathode->begin();
+  //wire_pressure->begin();
+  //wire_potential->begin(); // pass the I2C ports number 0=not used, 1=cathode pgm, 2=pressure, 3=potential pgm
+  //wire_cathode->begin();
   // run setup of I2C stuff from support_functions
-  POTSetup(*wire_potential,pot_LDAC);
-  CATSetup(*wire_cathode, cat_LDAC);
-  PressureSetup(*wire_pressure);
+  //POTSetup(*wire_potential,pot_LDAC);
+  //CATSetup(*wire_cathode, cat_LDAC);
+  //PressureSetup(*wire_pressure);
   delay(100);
   // Setup thermistors reads
   // chip selects setup here and set to all high
@@ -210,13 +210,13 @@ void setup()
   pinMode(CHIP_SELECT_D, OUTPUT);
   pinMode(CHIP_SELECT_E, OUTPUT);
   // set all CS to high
-  set_CS_all_high();
-  delay (1000);
-  Initialize_TM4C123();
+  //set_CS_all_high();
+  //delay (1000);
+  //Initialize_TM4C123();
   //delay(200);
   // Setup Thermistors after Initiliazing the SPI and chip selects
   
-  configure_channels((uint8_t)CHIP_SELECT_A);
+  /*configure_channels((uint8_t)CHIP_SELECT_A);
   configure_global_parameters((uint8_t)CHIP_SELECT_A);
   configure_channels((uint8_t)CHIP_SELECT_B);
   configure_global_parameters((uint8_t)CHIP_SELECT_B);
@@ -226,7 +226,7 @@ void setup()
   configure_global_parameters((uint8_t)CHIP_SELECT_D);
   configure_channels((uint8_t)CHIP_SELECT_E);
   configure_global_parameters((uint8_t)CHIP_SELECT_E);
-  
+  */
   digitalWrite(LED,LOW);
 
 }
@@ -284,7 +284,7 @@ void loop()
     }
     if(chip_to_read>=5) chip_to_read=0;
     if(counter_all>=25) counter_all=0;    
-    thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_A, temp_channels[0],TEMPERATURE);
+    //thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_A, temp_channels[0],TEMPERATURE);
   }
   
   // read in HV monitoring
@@ -304,7 +304,8 @@ void loop()
   // read in pressure
   if((long) (millis() - pressureUpdateTime) > 0){
     pressureUpdateTime+= PRESSURE_UPDATE_PERIOD;
-    dct_pressure.Pressure=PressureRead();
+    //dct_pressure.Pressure_vessel=PressureRead();
+    dct_pressure.Pressure_vacuumref=(uint16_t) analogRead(A5);
   }
   if((long) (millis() - LEDUpdateTime) > 0){
     LEDUpdateTime+= LED_UPDATE_PERIOD;
