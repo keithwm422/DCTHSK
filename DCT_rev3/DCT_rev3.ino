@@ -62,7 +62,8 @@ housekeeping_hdr_t * hdr_in;     housekeeping_hdr_t * hdr_out;
 housekeeping_err_t * hdr_err;   housekeeping_prio_t * hdr_prio;
 /* Memory buffers for housekeeping system functions */
 uint8_t numDevices = 0;           // Keep track of how many devices are upstream
-uint8_t commandPriority[NUM_LOCAL_CONTROLS] = {1,0,0,3,2,0,0,3};     // Each command's priority takes up one byte
+//uint8_t commandPriority[NUM_LOCAL_CONTROLS] = {1,0,0,3,2,0,0,3};     // Each command's priority takes up one byte
+uint8_t commandPriority[NUM_LOCAL_CONTROLS] = {0};     // Each command's priority takes up one byte
 PacketSerial *serialDevices = &downStream1;
 uint8_t addressList = 0; // List of all downstream devices
 
@@ -149,6 +150,10 @@ uint8_t potentiometer2_says[100];
 int pot_1_iter=0;
 int pot_2_iter=0;
 
+// for internal temps
+uint32_t TempRead;
+float TempC;
+
 // for Launchpad LED
 #define LED GREEN_LED
 #define LED_UPDATE_PERIOD 1350
@@ -227,6 +232,7 @@ void setup()
   configure_channels((uint8_t)CHIP_SELECT_E);
   configure_global_parameters((uint8_t)CHIP_SELECT_E);
   */
+  commandPriority[0]=1;
   digitalWrite(LED,LOW);
 
 }
@@ -285,6 +291,8 @@ void loop()
     if(chip_to_read>=5) chip_to_read=0;
     if(counter_all>=25) counter_all=0;    
     //thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_A, temp_channels[0],TEMPERATURE);
+    TempRead=analogRead(TEMPSENSOR);
+    TempC = (float)(1475 - ((2475 * TempRead) / 4096)) / 10;
   }
   
   // read in HV monitoring
@@ -424,10 +432,10 @@ void checkDownBoundDst(const void * sender) {
  * Send an error if a packet is unreadable in some way */
 void badPacketReceived(PacketSerial * sender){
   if (sender == serialDevices){
-    hdr_in->src = addressList;
+    hdr_in->src = eMainHsk;
   }
   hdr_out->src = myID;
-  buildError(hdr_err, hdr_out, hdr_in, EBADLEN);
+  buildError(hdr_err, hdr_out, hdr_in, EBADDEBUG);
   fillChecksum((uint8_t *) outgoingPacket);
   downStream1.send(outgoingPacket, hdr_size + hdr_out->len + 1);
   currentPacketCount++;
@@ -660,9 +668,10 @@ int handleLocalWrite(uint8_t localCommand, uint8_t * data, uint8_t len, uint8_t 
     retval = EBADLEN;
     break;
   }
-  default:
+  default:{
     retval=EBADCOMMAND;    
     break;
+  }
   }
   return retval;
 }
@@ -684,8 +693,6 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
     retval = EBADLEN;
     break;
   case eIntSensorRead: {
-    uint32_t TempRead=analogRead(TEMPSENSOR);
-    float TempC = (float)(1475 - ((2475 * TempRead) / 4096)) / 10;
     memcpy(buffer,(uint8_t *) &TempC,sizeof(TempC));
     retval=sizeof(TempC);
     break;
@@ -784,8 +791,6 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
   }
   
   case eISR: {
-    uint32_t TempRead=analogRead(TEMPSENSOR);
-    float TempC = (float)(1475 - ((2475 * TempRead) / 4096)) / 10;
     memcpy(buffer,(uint8_t *) &TempC,sizeof(TempC));
     retval=sizeof(TempC);
     break;
@@ -798,7 +803,7 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
   default:
     retval=EBADCOMMAND;
     break;
-  }  
+  }
   return retval;
 }
 

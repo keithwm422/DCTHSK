@@ -22,22 +22,8 @@ uint8_t default_address=96;
 uint8_t outgoingData [255] = {0};
 
 /* Variables for performing a temperature reading + storing it in an array of uint8_t */
-uint32_t TempRead;
 uint32_t * tmp;
 
-void whatToDoIfISR(uint8_t * data)
-{		
-	TempRead = analogRead(TEMPSENSOR);
-	
-	tmp = &TempRead;
-	
-	/* Fills outgoing data buffer */
-	for(int i=0; i < 4; i++)
-    {
-        *(data+i) = *tmp;
-        *tmp = *tmp>>8;
-    }
-}
 
 /* Function flow:
  * --Defines two variables, val & channel, to store a channel's pot value

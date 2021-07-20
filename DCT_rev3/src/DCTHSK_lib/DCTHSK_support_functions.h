@@ -14,7 +14,6 @@
 
 
 /* If these commands are received */
-void whatToDoIfISR(uint8_t * data);
 							
 int whatToDoIfHeaterControl(uint8_t * data, uint8_t len);
 
