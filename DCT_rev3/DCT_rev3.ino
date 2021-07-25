@@ -58,8 +58,8 @@ housekeeping_id myID = eDCTHsk;
 uint8_t outgoingPacket [MAX_PACKET_LENGTH] ={0}; 
 
 /* Use pointers for all device's housekeeping headers and the autopriorityperiods*/
-housekeeping_hdr_t * hdr_in;     housekeeping_hdr_t * hdr_out;
-housekeeping_err_t * hdr_err;   housekeeping_prio_t * hdr_prio;
+housekeeping_hdr_t * hdr_in{nullptr};     housekeeping_hdr_t * hdr_out{nullptr};
+housekeeping_err_t * hdr_err{nullptr};   housekeeping_prio_t * hdr_prio{nullptr};
 /* Memory buffers for housekeeping system functions */
 uint8_t numDevices = 0;           // Keep track of how many devices are upstream
 //uint8_t commandPriority[NUM_LOCAL_CONTROLS] = {1,0,0,3,2,0,0,3};     // Each command's priority takes up one byte
@@ -171,7 +171,7 @@ void setup()
   //downStream1.setPacketHandler(&checkHdr);
   // Serial port for downstream to Main HSK
   Serial1.begin(DOWNBAUD);
-    clear_buffers_with_this=0;
+  clear_buffers_with_this=0;
   while(clear_buffers_with_this!=-1){
     clear_buffers_with_this=Serial1.read();
   }
@@ -181,12 +181,12 @@ void setup()
   pinMode(LED, OUTPUT);
   digitalWrite(LED,HIGH);
   Serial3.begin(UPBAUD); //Pot A serial port
-    clear_buffers_with_this=0;
+  clear_buffers_with_this=0;
   while(clear_buffers_with_this!=-1){
     clear_buffers_with_this=Serial3.read();
   }
   Serial2.begin(UPBAUD); //Pot B serial port
-    clear_buffers_with_this=0;
+  clear_buffers_with_this=0;
   while(clear_buffers_with_this!=-1){
     clear_buffers_with_this=Serial2.read();
   }
