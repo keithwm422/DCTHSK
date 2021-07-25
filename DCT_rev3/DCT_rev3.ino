@@ -134,7 +134,7 @@ unsigned long step_HV_P_time=0;
 #define NUM_THERMS 25
 //float thermistor_temps[NUM_THERMS]={0};
 // there are five thermistors per chip_select, so need to cycle five times on the chip then go on to the next chip (or mod 5 it?)
-#define THERMS_UPDATE_PERIOD 1000
+#define THERMS_UPDATE_PERIOD 5000
 unsigned long thermsUpdateTime=0; // keeping time for the sensor check/write
 int counter=0; // counter 0,4 are CSA, 5,9 are CSB, 10,14 C, 15,19 D 20,24 E. 
 int chip_to_read=0;
@@ -159,6 +159,7 @@ float TempC;
 #define LED_UPDATE_PERIOD 1350
 unsigned long LEDUpdateTime=0; // keeping LED to visualize no hanging
 bool is_high=true;
+int clear_buffers_with_this=0;
 /*******************************************************************************
 * Main program
 *******************************************************************************/
@@ -170,13 +171,25 @@ void setup()
   //downStream1.setPacketHandler(&checkHdr);
   // Serial port for downstream to Main HSK
   Serial1.begin(DOWNBAUD);
+    clear_buffers_with_this=0;
+  while(clear_buffers_with_this!=-1){
+    clear_buffers_with_this=Serial1.read();
+  }
   downStream1.setStream(&Serial1);
   downStream1.setPacketHandler(&checkHdr);
   // LED on launchpad
   pinMode(LED, OUTPUT);
   digitalWrite(LED,HIGH);
   Serial3.begin(UPBAUD); //Pot A serial port
+    clear_buffers_with_this=0;
+  while(clear_buffers_with_this!=-1){
+    clear_buffers_with_this=Serial3.read();
+  }
   Serial2.begin(UPBAUD); //Pot B serial port
+    clear_buffers_with_this=0;
+  while(clear_buffers_with_this!=-1){
+    clear_buffers_with_this=Serial2.read();
+  }
   // Point to data in a way that it can be read as a header
   hdr_out = (housekeeping_hdr_t *) outgoingPacket;
   hdr_err = (housekeeping_err_t *) (outgoingPacket + hdr_size);
@@ -232,9 +245,9 @@ void setup()
   configure_channels((uint8_t)CHIP_SELECT_E);
   configure_global_parameters((uint8_t)CHIP_SELECT_E);
   */
-  commandPriority[0]=1;
+  commandPriority[0]=3; //for ISR
+  commandPriority[3]=3; // for thermistors
   digitalWrite(LED,LOW);
-
 }
 
 /*******************************************************************************
@@ -282,6 +295,9 @@ void loop()
         break;
     }
     */
+    TempRead=analogRead(TEMPSENSOR);
+    TempC = (float)(1475 - ((2475 * TempRead) / 4096)) / 10;
+    //thermistors.Therms[counter_all]=TempC + 0.1;
     counter++;
     counter_all++;
     if(counter>=5){
@@ -291,8 +307,6 @@ void loop()
     if(chip_to_read>=5) chip_to_read=0;
     if(counter_all>=25) counter_all=0;    
     //thermistors.Therms[0] = measure_channel((uint8_t)CHIP_SELECT_A, temp_channels[0],TEMPERATURE);
-    TempRead=analogRead(TEMPSENSOR);
-    TempC = (float)(1475 - ((2475 * TempRead) / 4096)) / 10;
   }
   
   // read in HV monitoring
@@ -313,7 +327,7 @@ void loop()
   if((long) (millis() - pressureUpdateTime) > 0){
     pressureUpdateTime+= PRESSURE_UPDATE_PERIOD;
     //dct_pressure.Pressure_vessel=PressureRead();
-    dct_pressure.Pressure_vacuumref=(uint16_t) analogRead(A5);
+    //dct_pressure.Pressure_vacuumref=(uint16_t) analogRead(A5);
   }
   if((long) (millis() - LEDUpdateTime) > 0){
     LEDUpdateTime+= LED_UPDATE_PERIOD;
@@ -374,6 +388,7 @@ void checkHdr(const void *sender, const uint8_t *buffer, size_t len) {
   // Default header & error data values
   hdr_out->src = myID;          // Source of data packet
   hdr_in = (housekeeping_hdr_t *)buffer;
+  hdr_out = (housekeeping_hdr_t *) outgoingPacket;
   hdr_prio = (housekeeping_prio_t *) (buffer + hdr_size);
     // If an error occurs at this device from a message
   if (hdr_in->dst == eBroadcast || hdr_in->dst==myID) hdr_err->dst = myID;
@@ -435,7 +450,7 @@ void badPacketReceived(PacketSerial * sender){
     hdr_in->src = eMainHsk;
   }
   hdr_out->src = myID;
-  buildError(hdr_err, hdr_out, hdr_in, EBADDEBUG);
+  buildError(hdr_err, hdr_out, hdr_in, EBADARGS);
   fillChecksum((uint8_t *) outgoingPacket);
   downStream1.send(outgoingPacket, hdr_size + hdr_out->len + 1);
   currentPacketCount++;
@@ -683,7 +698,7 @@ int handleLocalWrite(uint8_t localCommand, uint8_t * data, uint8_t len, uint8_t 
 // will be written.
 // int returns the number of bytes that were copied into
 // the buffer, or EBADCOMMAND if there's no command there
-int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
+int handleLocalRead(uint8_t localCommand, uint8_t * outbuffer) {
   int retval = 0;
   switch(localCommand) {
   case ePingPong:
@@ -693,18 +708,18 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
     retval = EBADLEN;
     break;
   case eIntSensorRead: {
-    memcpy(buffer,(uint8_t *) &TempC,sizeof(TempC));
+    memcpy(outbuffer,(uint8_t *) &TempC,sizeof(TempC));
     retval=sizeof(TempC);
     break;
   }
   case eThermistorsTest:{
     int len_therms = 4; // length of the thermistor channels to send back?
 // Have just plan Serial.read() 
-//    retval = Serial2.readBytes(buffer,len_therms);
-//    whatToDoIfThermistors(buffer);
+//    retval = Serial2.readBytes(outbuffer,len_therms);
+//    whatToDoIfThermistors(outbuffer);
     break;}
   case ePacketCount:
-    memcpy(buffer, (uint8_t *) &currentPacketCount, sizeof(currentPacketCount));
+    memcpy(outbuffer, (uint8_t *) &currentPacketCount, sizeof(currentPacketCount));
     retval = sizeof(currentPacketCount);
     break;
   case eThermistors:{
@@ -713,56 +728,56 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
 //    float res = return_resistance(CHIP_SELECT_A, 10);
 //    float res = measure_channel_2(CHIP_SELECT, 10); // test functions to do the read correctly
 //    float res = return_resistance_2(CHIP_SELECT, 10); // read the channel 10 resistance from RTD
-    memcpy(buffer,(uint8_t *) &thermistors, sizeof(sDCTThermistors));
+    memcpy(outbuffer,(uint8_t *) &thermistors, sizeof(sDCTThermistors));
     break;}
   case eHVmon:{
-    memcpy(buffer, (uint8_t *) &hvmon,sizeof(sDCTHV));
+    memcpy(outbuffer, (uint8_t *) &hvmon,sizeof(sDCTHV));
     retval=sizeof(sDCTHV);
     break;
   }
   case eVPGMPotential:{
-    memcpy(buffer, (uint8_t *) &voltage_potential,sizeof(voltage_potential));
+    memcpy(outbuffer, (uint8_t *) &voltage_potential,sizeof(voltage_potential));
     retval=sizeof(voltage_potential);
     break;
   }
   case eIPGMPotential:{
-    memcpy(buffer, (uint8_t *) &current_potential,sizeof(current_potential));
+    memcpy(outbuffer, (uint8_t *) &current_potential,sizeof(current_potential));
     retval=sizeof(current_potential);
     break;
   }
   case eVPGMCathode:{
-    memcpy(buffer, (uint8_t *) &voltage_cathode,sizeof(voltage_cathode));
+    memcpy(outbuffer, (uint8_t *) &voltage_cathode,sizeof(voltage_cathode));
     retval=sizeof(voltage_cathode);
     break;
   }
   case eIPGMCathode:{
-    memcpy(buffer, (uint8_t *) &current_cathode,sizeof(current_cathode));
+    memcpy(outbuffer, (uint8_t *) &current_cathode,sizeof(current_cathode));
     retval=sizeof(current_cathode);
     break;
   }
 
   case eVMONCathode:{
-    memcpy(buffer, (uint8_t *) hvmon.CatVmon,sizeof(hvmon.CatVmon));
+    memcpy(outbuffer, (uint8_t *) hvmon.CatVmon,sizeof(hvmon.CatVmon));
     retval=sizeof(hvmon.CatVmon);
     break;
   }
   case eIMONCathode:{
-    memcpy(buffer, (uint8_t *) hvmon.CatImon,sizeof(hvmon.CatImon));
+    memcpy(outbuffer, (uint8_t *) hvmon.CatImon,sizeof(hvmon.CatImon));
     retval=sizeof(hvmon.CatImon);
     break;
   }
   case eVMONPotential:{
-    memcpy(buffer, (uint8_t *) hvmon.PotVmon,sizeof(hvmon.PotVmon));
+    memcpy(outbuffer, (uint8_t *) hvmon.PotVmon,sizeof(hvmon.PotVmon));
     retval=sizeof(hvmon.PotVmon);
     break;
   }
   case eIMONPotential:{
-    memcpy(buffer, (uint8_t *) hvmon.PotImon,sizeof(hvmon.PotImon));
+    memcpy(outbuffer, (uint8_t *) hvmon.PotImon,sizeof(hvmon.PotImon));
     retval=sizeof(hvmon.PotImon);
     break;
   }
   case ePressure:{
-    memcpy(buffer,(uint8_t *)&dct_pressure,sizeof(sDCTPressure));
+    memcpy(outbuffer,(uint8_t *)&dct_pressure,sizeof(sDCTPressure));
     retval=sizeof(sDCTPressure);
     break;
   }
@@ -771,27 +786,27 @@ int handleLocalRead(uint8_t localCommand, uint8_t *buffer) {
     hvmonconverted.CatI=hvmon.CatImon*conv_factor_current;
     hvmonconverted.PotV=hvmon.PotVmon*conv_factor_HV;
     hvmonconverted.PotI=hvmon.PotImon*conv_factor_current;
-    memcpy(buffer, (uint8_t *) &hvmonconverted,sizeof(sDCTHVConverted));
+    memcpy(outbuffer, (uint8_t *) &hvmonconverted,sizeof(sDCTHVConverted));
     retval=sizeof(sDCTHVConverted);
     break;
   }
   case eHVMonOTEN:{
-    memcpy(buffer, (uint8_t *) &ot_cathode_read,sizeof(ot_cathode_read));
-    memcpy(buffer+sizeof(ot_cathode_read), (uint8_t *) &ot_potential_read,sizeof(ot_potential_read));
-    memcpy(buffer+sizeof(ot_cathode_read)+sizeof(ot_potential_read), (uint8_t *) &is_cathode_disabled,sizeof(is_cathode_disabled));
-    memcpy(buffer+sizeof(ot_cathode_read)+sizeof(ot_potential_read)+sizeof(is_cathode_disabled), (uint8_t *) &is_potential_disabled,sizeof(is_potential_disabled));
+    memcpy(outbuffer, (uint8_t *) &ot_cathode_read,sizeof(ot_cathode_read));
+    memcpy(outbuffer+sizeof(ot_cathode_read), (uint8_t *) &ot_potential_read,sizeof(ot_potential_read));
+    memcpy(outbuffer+sizeof(ot_cathode_read)+sizeof(ot_potential_read), (uint8_t *) &is_cathode_disabled,sizeof(is_cathode_disabled));
+    memcpy(outbuffer+sizeof(ot_cathode_read)+sizeof(ot_potential_read)+sizeof(is_cathode_disabled), (uint8_t *) &is_potential_disabled,sizeof(is_potential_disabled));
     retval=sizeof(ot_cathode_read)+sizeof(ot_potential_read)+sizeof(is_cathode_disabled)+sizeof(is_potential_disabled);
     break;
   }
   case eReadHeaterResponse:{
-    memcpy(buffer, (uint8_t *) &potentiometer1_says,sizeof(potentiometer1_says));
-    memcpy(buffer+sizeof(potentiometer1_says), (uint8_t *) &potentiometer2_says,sizeof(potentiometer2_says));
+    memcpy(outbuffer, (uint8_t *) &potentiometer1_says,sizeof(potentiometer1_says));
+    memcpy(outbuffer+sizeof(potentiometer1_says), (uint8_t *) &potentiometer2_says,sizeof(potentiometer2_says));
     retval=sizeof(potentiometer1_says)+sizeof(potentiometer2_says);
     break;
   }
   
   case eISR: {
-    memcpy(buffer,(uint8_t *) &TempC,sizeof(TempC));
+    memcpy(outbuffer,(uint8_t *) &TempC,sizeof(TempC));
     retval=sizeof(TempC);
     break;
   }
