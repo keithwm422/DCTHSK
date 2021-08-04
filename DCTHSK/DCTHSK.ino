@@ -18,7 +18,7 @@
 #include <Core_protocol.h>
 #include <PacketSerial.h>
 #include <driverlib/sysctl.h>
-#include <Hsk_all_data_types.h>
+//#include <Hsk_all_data_types.h>
 /* These are device specific */
 #include "src/DCTHSK_lib/DCTHSK_protocol.h"
 // from magnet hsk for LTC2983
@@ -705,7 +705,7 @@ int handleLocalRead(uint8_t localCommand, uint8_t * outbuffer) {
   case eSetPriority:
     retval = EBADLEN;
     break;
-  case eIntSensorRead: {
+  case eDCTIntSensorRead: {
     memcpy(outbuffer,(uint8_t *) &TempC,sizeof(TempC));
     retval=sizeof(TempC);
     break;
@@ -803,7 +803,7 @@ int handleLocalRead(uint8_t localCommand, uint8_t * outbuffer) {
     break;
   }
   
-  case eISR: {
+  case eDCTISR: {
     memcpy(outbuffer,(uint8_t *) &TempC,sizeof(TempC));
     retval=sizeof(TempC);
     break;
